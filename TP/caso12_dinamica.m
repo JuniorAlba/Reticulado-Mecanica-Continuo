@@ -457,6 +457,62 @@ xlabel('Tiempo [s]'); ylabel('y_{nodo 4} [m]');
 title('Coordenada actual del nodo b=4');
 legend('Location','best'); grid on;
 
+% --- Vista conjunta para verificar tiempos finales ---
+figure('Name','Comparacion a.i, a.ii y reticulado amortiguado','NumberTitle','off');
+tiledlayout(2,2,'TileSpacing','compact','Padding','compact');
+
+nexttile;
+hold on;
+plot(t_lin(idx_min_lin), sig_lin, 'b-',  'LineWidth', 1.5, 'DisplayName','Lineal (a.ii)');
+plot(t_nl(idx_min_nl),   sig_nl,  'r-',  'LineWidth', 1.5, 'DisplayName','No lineal (a.i)');
+plot(t_am(idx_min_am),   sig_am,  'g--', 'LineWidth', 1.5, 'DisplayName','Con amortiguador');
+yl = ylim;
+plot([tF_lin tF_lin], yl, 'b:', 'HandleVisibility','off');
+plot([tF_nl  tF_nl ], yl, 'r:', 'HandleVisibility','off');
+plot([tF_am  tF_am ], yl, 'g:', 'HandleVisibility','off');
+ylim(yl);
+xlabel('Tiempo [s]'); ylabel('\sigma [Pa]');
+title('Tension normal barra a=5');
+legend('Location','best'); grid on;
+
+nexttile;
+hold on;
+plot(t_lin(idx_min_lin), y_nodo_b_lin, 'b-',  'LineWidth', 1.5, 'DisplayName','Lineal (a.ii)');
+plot(t_nl(idx_min_nl),   y_nodo_b_nl,  'r-',  'LineWidth', 1.5, 'DisplayName','No lineal (a.i)');
+plot(t_am(idx_min_am),   y_nodo_b_am,  'g--', 'LineWidth', 1.5, 'DisplayName','Con amortiguador');
+yl = ylim;
+plot([tF_lin tF_lin], yl, 'b:', 'HandleVisibility','off');
+plot([tF_nl  tF_nl ], yl, 'r:', 'HandleVisibility','off');
+plot([tF_am  tF_am ], yl, 'g:', 'HandleVisibility','off');
+ylim(yl);
+xlabel('Tiempo [s]'); ylabel('y_{nodo 4} [m]');
+title('Coordenada actual nodo b=4');
+legend('Location','best'); grid on;
+
+nexttile;
+bar([tF_nl, tF_lin, tF_am]);
+set(gca,'XTickLabel',{'a.i','a.ii','Amort.'});
+ylabel('t_F [s]');
+title('Tiempos finales');
+grid on;
+
+nexttile;
+hold on; axis equal; grid on;
+idx_final_am = idx_min_am(end);
+u_glob_am = zeros(nDOF,1);
+u_glob_am(DOF_lib) = u_hist_am(idx_final_am,:)';
+x_am = x0 + u_glob_am(1:2:end)';
+y_am = y0 + u_glob_am(2:2:end)';
+for e = 1:nBarras
+    plot([x0(Ni(e)) x0(Nj(e))], [y0(Ni(e)) y0(Nj(e))], 'Color',[0.7 0.7 0.7], 'LineWidth',0.8);
+end
+for e = 1:nBarras
+    plot([x_am(Ni(e)) x_am(Nj(e))], [y_am(Ni(e)) y_am(Nj(e))], 'g-', 'LineWidth',1.5);
+end
+plot(x_am, y_am, 'ko', 'MarkerFaceColor','g', 'MarkerSize',5);
+xlabel('x [m]'); ylabel('y [m]');
+title(sprintf('Reticulado con amortiguacion, t = %.2f s', t_am(idx_final_am)));
+
 % =========================================================
 %  ANIMACION - Configuracion deformada en el tiempo (a.i)
 % =========================================================
