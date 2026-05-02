@@ -439,7 +439,7 @@ plot(t_nl(idx_min_nl),   sig_nl,  'r-',  'LineWidth', 1.5, 'DisplayName','No lin
 plot(t_am(idx_min_am),   sig_am,  'g--', 'LineWidth', 1.5, 'DisplayName','Con amortiguador');
 xlabel('Tiempo [s]'); ylabel('\sigma [Pa]');
 title('Tension normal en barra a=5');
-legend('Location','best'); grid on;
+legend('Location','northeast'); grid on;
 
 figure('Name','Tension tangencial barra a=5','NumberTitle','off');
 hold on;
@@ -455,13 +455,12 @@ plot(t_nl(idx_min_nl),   y_nodo_b_nl,  'r-',  'LineWidth', 1.5, 'DisplayName','N
 plot(t_am(idx_min_am),   y_nodo_b_am,  'g--', 'LineWidth', 1.5, 'DisplayName','Con amortiguador');
 xlabel('Tiempo [s]'); ylabel('y_{nodo 4} [m]');
 title('Coordenada actual del nodo b=4');
-legend('Location','best'); grid on;
+legend('Location','northeast'); grid on;
 
 % --- Vista conjunta para verificar tiempos finales ---
 figure('Name','Comparacion a.i, a.ii y reticulado amortiguado','NumberTitle','off');
-tiledlayout(2,2,'TileSpacing','compact','Padding','compact');
 
-nexttile;
+subplot(2,2,1);
 hold on;
 plot(t_lin(idx_min_lin), sig_lin, 'b-',  'LineWidth', 1.5, 'DisplayName','Lineal (a.ii)');
 plot(t_nl(idx_min_nl),   sig_nl,  'r-',  'LineWidth', 1.5, 'DisplayName','No lineal (a.i)');
@@ -473,9 +472,9 @@ plot([tF_am  tF_am ], yl, 'g:', 'HandleVisibility','off');
 ylim(yl);
 xlabel('Tiempo [s]'); ylabel('\sigma [Pa]');
 title('Tension normal barra a=5');
-legend('Location','best'); grid on;
+legend('Location','northeast'); grid on;
 
-nexttile;
+subplot(2,2,2);
 hold on;
 plot(t_lin(idx_min_lin), y_nodo_b_lin, 'b-',  'LineWidth', 1.5, 'DisplayName','Lineal (a.ii)');
 plot(t_nl(idx_min_nl),   y_nodo_b_nl,  'r-',  'LineWidth', 1.5, 'DisplayName','No lineal (a.i)');
@@ -487,16 +486,16 @@ plot([tF_am  tF_am ], yl, 'g:', 'HandleVisibility','off');
 ylim(yl);
 xlabel('Tiempo [s]'); ylabel('y_{nodo 4} [m]');
 title('Coordenada actual nodo b=4');
-legend('Location','best'); grid on;
+legend('Location','northeast'); grid on;
 
-nexttile;
+subplot(2,2,3);
 bar([tF_nl, tF_lin, tF_am]);
 set(gca,'XTickLabel',{'a.i','a.ii','Amort.'});
 ylabel('t_F [s]');
 title('Tiempos finales');
 grid on;
 
-nexttile;
+subplot(2,2,4);
 hold on; axis equal; grid on;
 idx_final_am = idx_min_am(end);
 u_glob_am = zeros(nDOF,1);
