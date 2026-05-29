@@ -317,7 +317,7 @@ hold on;
 plot(t_lin(idx_com_lin), sig_lin(1:length(idx_com_lin)), 'b-', 'LineWidth', 1.5, 'DisplayName','Lineal (a.ii)');
 plot(t_nl(idx_com_nl),   sig_nl( 1:length(idx_com_nl)),  'r-', 'LineWidth', 1.5, 'DisplayName','No lineal (a.i)');
 xlabel('Tiempo [s]'); ylabel('\sigma [Pa]');
-title(sprintf('\sigma barra a=%d  en [0, tF_{min}=%.2f s]', barra_a, tF_min));
+title(sprintf('\\sigma barra a=%d  en [0, tF_{min}=%.2f s]', barra_a, tF_min));
 legend('Location','northeast'); grid on;
 
 subplot(2,2,2);   % --- Coordenada actual nodo b en intervalo comun ---
@@ -349,8 +349,12 @@ text(2, tF_lin * 0.5, sprintf('%.2f s',tF_lin), 'HorizontalAlignment','center','
 text(3, tF_am  * 0.5, sprintf('%.2f s',tF_am),  'HorizontalAlignment','center','Color','w','FontWeight','bold');
 grid on;
 
-sgtitle(sprintf(['b.iii - Comparacion a.i vs a.ii en [0, min(t_F)] = [0, %.2f s]\n' ...
-    'Marcadores: norma maxima de desplazamiento'], tF_min), 'FontSize', 10);
+% sgtitle no existe en Octave; se usa un axes oculto centrado como titulo de figura
+ax_title = axes('Position',[0 0.96 1 0.04], 'Visible','off');
+text(ax_title, 0.5, 0.5, ...
+    sprintf('b.iii - Comparacion a.i vs a.ii en [0, min(tF)] = [0, %.2f s]  |  Marcadores: norma max. despl.', tF_min), ...
+    'HorizontalAlignment','center', 'VerticalAlignment','middle', ...
+    'FontSize', 10, 'Units','normalized');
 
 % =========================================================
 %  FIGURA 5: Vista conjunta con deformada (referencia geometrica)
