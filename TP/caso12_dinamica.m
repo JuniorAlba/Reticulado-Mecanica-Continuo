@@ -424,33 +424,36 @@ for k = 1:paso_anim:length(idx_anim)
     x_act = x0 + u_glob(1:2:end)';
     y_act = y0 + u_glob(2:2:end)';
 
-    clf;
-    hold on; axis equal; grid on;
-    xlim(xlims); ylim(ylims);
+    clf(fig_anim);                      % borra axes pero preserva la figura
+    ax_anim = axes('Parent', fig_anim); % crea nuevo axes en fig_anim
+    hold(ax_anim, 'on');
+    axis(ax_anim, 'equal'); grid(ax_anim, 'on');
+    xlim(ax_anim, xlims); ylim(ax_anim, ylims);
 
     % Configuracion inicial (gris)
     for e = 1:nBarras
-        plot([x0(Ni(e)) x0(Nj(e))], [y0(Ni(e)) y0(Nj(e))], ...
+        plot(ax_anim, [x0(Ni(e)) x0(Nj(e))], [y0(Ni(e)) y0(Nj(e))], ...
             'Color',[0.7 0.7 0.7], 'LineWidth', 0.8);
     end
     % Configuracion deformada (azul)
     for e = 1:nBarras
-        plot([x_act(Ni(e)) x_act(Nj(e))], [y_act(Ni(e)) y_act(Nj(e))], ...
+        plot(ax_anim, [x_act(Ni(e)) x_act(Nj(e))], [y_act(Ni(e)) y_act(Nj(e))], ...
             'b-', 'LineWidth', 1.5);
     end
-    plot(x_act, y_act, 'ko', 'MarkerFaceColor','b', 'MarkerSize', 5);
-    title(sprintf('t = %.2f s  |  No lineal (a.i)  |  Caso 12', t_nl(idx_anim(k))), ...
+    plot(ax_anim, x_act, y_act, 'ko', 'MarkerFaceColor','b', 'MarkerSize', 5);
+    title(ax_anim, sprintf('t = %.2f s  |  No lineal (a.i)  |  Caso 12', t_nl(idx_anim(k))), ...
         'FontSize', 10);
-    xlabel('x [m]'); ylabel('y [m]');
+    xlabel(ax_anim, 'x [m]'); ylabel(ax_anim, 'y [m]');
     drawnow;
 
     % Guardar frame en GIF
+    % Se pasa siempre fig_anim: su handle es estable aunque clf recree los axes
     if first_gif
-        gif(gif_path, 'overwrite', true, 'frame', gca, ...
+        gif(gif_path, 'overwrite', true, 'frame', fig_anim, ...
             'DelayTime', 1/15, 'LoopCount', 1);
         first_gif = false;
     else
-        gif;
+        gif('frame', fig_anim);
     end
 end
 gif('clear');
