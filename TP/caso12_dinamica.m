@@ -1,4 +1,4 @@
-﻿% =========================================================
+% =========================================================
 %  CASO 12 - Reticulado plano 2D
 %  Dinamica: hipotesis lineal (a.ii) y no lineal (a.i)
 %  Deteccion de tF, tensiones, amortiguador Drag Force
@@ -202,7 +202,7 @@ fprintf('tF con amortiguador = %.4f s\n', tF_am);
 % =========================================================
 
 % --- Tension en barra a=5 a lo largo del tiempo ---
-tF_min = min(tF_lin, tF_nl);
+tF_min = min(tF_lin, tF_nl);   % intervalo comun b.iii
 
 [sig_lin, tau_lin] = calcular_tensiones_hist(t_lin, u_hist_lin, tF_lin, barra_a, ...
                       x0, y0, Ni, Nj, DOF_lib, nNodos, E, L0);
@@ -211,26 +211,53 @@ tF_min = min(tF_lin, tF_nl);
 [sig_am,  tau_am]  = calcular_tensiones_hist(t_am,  u_hist_am,  tF_am,  barra_a, ...
                       x0, y0, Ni, Nj, DOF_lib, nNodos, E, L0);
 
-% --- Coordenada actual del nodo b=4 ---
-DOF_b_x = find(DOF_lib == 2*nodo_b-1);
-DOF_b_y = find(DOF_lib == 2*nodo_b);
-
+% Indices hasta cada tF propio (para graficas b.ii)
 idx_min_lin = find(t_lin <= tF_lin);
 idx_min_nl  = find(t_nl  <= tF_nl);
 idx_min_am  = find(t_am  <= tF_am);
+
+% Indices recortados al intervalo comun [0, tF_min] (para comparacion b.iii)
+idx_com_lin = find(t_lin <= tF_min);
+idx_com_nl  = find(t_nl  <= tF_min);
+
+% --- Coordenada actual del nodo b ---
+DOF_b_x = find(DOF_lib == 2*nodo_b-1);  %#ok<NASGU>
+DOF_b_y = find(DOF_lib == 2*nodo_b);
 
 y_nodo_b_lin = y0(nodo_b) + u_hist_lin(idx_min_lin, DOF_b_y);
 y_nodo_b_nl  = y0(nodo_b) + u_hist_nl( idx_min_nl,  DOF_b_y);
 y_nodo_b_am  = y0(nodo_b) + u_hist_am( idx_min_am,  DOF_b_y);
 
-% --- Norma maxima del vector desplazamiento ---
+% Coordenada nodo b en intervalo comun (para b.iii)
+y_nodo_b_lin_com = y0(nodo_b) + u_hist_lin(idx_com_lin, DOF_b_y);
+y_nodo_b_nl_com  = y0(nodo_b) + u_hist_nl( idx_com_nl,  DOF_b_y);
+
+% --- Norma del vector desplazamiento en el tiempo (para b.iii) ---
 [nm_lin, t_nm_lin] = norma_max_despl(t_lin, u_hist_lin, DOF_lib, nNodos, tF_lin);
 [nm_nl,  t_nm_nl]  = norma_max_despl(t_nl,  u_hist_nl,  DOF_lib, nNodos, tF_nl);
 [nm_am,  t_nm_am]  = norma_max_despl(t_am,  u_hist_am,  DOF_lib, nNodos, tF_am);
 
+% Evolucion de la norma maxima en el intervalo comun (para grafica b.iii)
+nDOF = 2*nNodos;
+norm_ev_lin = zeros(length(idx_com_lin),1);
+for k = 1:length(idx_com_lin)
+    u_g = zeros(nDOF,1);
+    u_g(DOF_lib) = u_hist_lin(idx_com_lin(k),:)';
+    un = reshape(u_g,2,nNodos);
+    norm_ev_lin(k) = max(sqrt(un(1,:).^2 + un(2,:).^2));
+end
+norm_ev_nl = zeros(length(idx_com_nl),1);
+for k = 1:length(idx_com_nl)
+    u_g = zeros(nDOF,1);
+    u_g(DOF_lib) = u_hist_nl(idx_com_nl(k),:)';
+    un = reshape(u_g,2,nNodos);
+    norm_ev_nl(k) = max(sqrt(un(1,:).^2 + un(2,:).^2));
+end
+
 fprintf('\n--- Resumen de resultados ---\n');
 fprintf('                    Lineal (a.ii)   No lineal (a.i)   Con amortiguador\n');
 fprintf('tF [s]              %10.4f      %10.4f        %10.4f\n', tF_lin, tF_nl, tF_am);
+fprintf('min(tFa.i, tFa.ii)  %10.4f\n', tF_min);
 fprintf('Norma max despl     %10.4f      %10.4f        %10.4f\n', nm_lin, nm_nl, nm_am);
 fprintf('Tiempo norma max    %10.4f      %10.4f        %10.4f\n', t_nm_lin, t_nm_nl, t_nm_am);
 
@@ -238,70 +265,116 @@ fprintf('Tiempo norma max    %10.4f      %10.4f        %10.4f\n', t_nm_lin, t_nm
 %  GRAFICAS
 % =========================================================
 
+% =========================================================
+%  FIGURA 1: Tension normal barra a (b.ii) - cada caso hasta su propio tF
+% =========================================================
 figure('Name','Tension normal barra a=5','NumberTitle','off');
 hold on;
 plot(t_lin(idx_min_lin), sig_lin, 'b-',  'LineWidth', 1.5, 'DisplayName','Lineal (a.ii)');
 plot(t_nl(idx_min_nl),   sig_nl,  'r-',  'LineWidth', 1.5, 'DisplayName','No lineal (a.i)');
 plot(t_am(idx_min_am),   sig_am,  'g--', 'LineWidth', 1.5, 'DisplayName','Con amortiguador');
 xlabel('Tiempo [s]'); ylabel('\sigma [Pa]');
-title('Tension normal en barra a=5');
+title(sprintf('Tension normal en barra a=%d', barra_a));
 legend('Location','northeast'); grid on;
 
+% =========================================================
+%  FIGURA 2: Tension tangencial barra a (b.ii)
+%  tau = 0 siempre en reticulado articulado (sin momento flector)
+% =========================================================
 figure('Name','Tension tangencial barra a=5','NumberTitle','off');
 hold on;
-plot(t_lin(idx_min_lin), tau_lin, 'b-', 'LineWidth', 1.5);
+plot(t_lin(idx_min_lin), tau_lin, 'b-',  'LineWidth', 1.5, 'DisplayName','Lineal (a.ii)');
+plot(t_nl(idx_min_nl),   tau_nl,  'r-',  'LineWidth', 1.5, 'DisplayName','No lineal (a.i)');
+plot(t_am(idx_min_am),   tau_am,  'g--', 'LineWidth', 1.5, 'DisplayName','Con amortiguador');
 xlabel('Tiempo [s]'); ylabel('\tau [Pa]');
-title('Tension tangencial en barra a=5 (debe ser cero: barra articulada)');
-grid on;
+title(sprintf('Tension tangencial en barra a=%d  (\tau = 0: barra articulada)', barra_a));
+legend('Location','northeast'); grid on;
+ytext = sprintf(['\tau = 0 en todo momento porque cada barra solo puede transmitir\n' ...
+    'fuerza axial (union articulada, sin momento flector ni corte).']);
+text(0.02, 0.5, ytext, 'Units','normalized', 'FontSize', 9, ...
+    'VerticalAlignment','middle', 'BackgroundColor',[1 1 0.85], 'EdgeColor','k');
 
-figure('Name','Coordenada actual nodo b=4','NumberTitle','off');
+% =========================================================
+%  FIGURA 3: Coordenada actual nodo b (b.ii)
+% =========================================================
+figure('Name',sprintf('Coordenada actual nodo b=%d',nodo_b),'NumberTitle','off');
 hold on;
 plot(t_lin(idx_min_lin), y_nodo_b_lin, 'b-',  'LineWidth', 1.5, 'DisplayName','Lineal (a.ii)');
 plot(t_nl(idx_min_nl),   y_nodo_b_nl,  'r-',  'LineWidth', 1.5, 'DisplayName','No lineal (a.i)');
 plot(t_am(idx_min_am),   y_nodo_b_am,  'g--', 'LineWidth', 1.5, 'DisplayName','Con amortiguador');
-xlabel('Tiempo [s]'); ylabel('y_{nodo 4} [m]');
-title('Coordenada actual del nodo b=4');
+xlabel('Tiempo [s]'); ylabel(sprintf('y_{nodo %d} [m]', nodo_b));
+title(sprintf('Coordenada actual del nodo b=%d', nodo_b));
 legend('Location','northeast'); grid on;
 
-% --- Vista conjunta para verificar tiempos finales ---
-figure('Name','Comparacion a.i, a.ii y reticulado amortiguado','NumberTitle','off');
+% =========================================================
+%  FIGURA 4 (b.iii): Comparacion a.i vs a.ii en intervalo comun [0, tF_min]
+% =========================================================
+figure('Name', sprintf('b.iii - Comparacion en [0, min(tFa.i, tFa.ii)] = [0, %.2f s]', tF_min), ...
+    'NumberTitle','off');
 
-subplot(2,2,1);
+subplot(2,2,1);   % --- Tension normal en intervalo comun ---
 hold on;
-plot(t_lin(idx_min_lin), sig_lin, 'b-',  'LineWidth', 1.5, 'DisplayName','Lineal (a.ii)');
-plot(t_nl(idx_min_nl),   sig_nl,  'r-',  'LineWidth', 1.5, 'DisplayName','No lineal (a.i)');
-plot(t_am(idx_min_am),   sig_am,  'g--', 'LineWidth', 1.5, 'DisplayName','Con amortiguador');
-yl = ylim;
-plot([tF_lin tF_lin], yl, 'b:', 'HandleVisibility','off');
-plot([tF_nl  tF_nl ], yl, 'r:', 'HandleVisibility','off');
-plot([tF_am  tF_am ], yl, 'g:', 'HandleVisibility','off');
-ylim(yl);
+plot(t_lin(idx_com_lin), sig_lin(1:length(idx_com_lin)), 'b-', 'LineWidth', 1.5, 'DisplayName','Lineal (a.ii)');
+plot(t_nl(idx_com_nl),   sig_nl( 1:length(idx_com_nl)),  'r-', 'LineWidth', 1.5, 'DisplayName','No lineal (a.i)');
 xlabel('Tiempo [s]'); ylabel('\sigma [Pa]');
-title('Tension normal barra a=5');
+title(sprintf('\sigma barra a=%d  en [0, tF_{min}=%.2f s]', barra_a, tF_min));
 legend('Location','northeast'); grid on;
 
-subplot(2,2,2);
+subplot(2,2,2);   % --- Coordenada actual nodo b en intervalo comun ---
 hold on;
-plot(t_lin(idx_min_lin), y_nodo_b_lin, 'b-',  'LineWidth', 1.5, 'DisplayName','Lineal (a.ii)');
-plot(t_nl(idx_min_nl),   y_nodo_b_nl,  'r-',  'LineWidth', 1.5, 'DisplayName','No lineal (a.i)');
-plot(t_am(idx_min_am),   y_nodo_b_am,  'g--', 'LineWidth', 1.5, 'DisplayName','Con amortiguador');
-yl = ylim;
-plot([tF_lin tF_lin], yl, 'b:', 'HandleVisibility','off');
-plot([tF_nl  tF_nl ], yl, 'r:', 'HandleVisibility','off');
-plot([tF_am  tF_am ], yl, 'g:', 'HandleVisibility','off');
-ylim(yl);
-xlabel('Tiempo [s]'); ylabel('y_{nodo 4} [m]');
-title('Coordenada actual nodo b=4');
+plot(t_lin(idx_com_lin), y_nodo_b_lin_com, 'b-', 'LineWidth', 1.5, 'DisplayName','Lineal (a.ii)');
+plot(t_nl(idx_com_nl),   y_nodo_b_nl_com,  'r-', 'LineWidth', 1.5, 'DisplayName','No lineal (a.i)');
+xlabel('Tiempo [s]'); ylabel(sprintf('y_{nodo %d} [m]', nodo_b));
+title(sprintf('Coord. actual nodo b=%d  en [0, tF_{min}=%.2f s]', nodo_b, tF_min));
 legend('Location','northeast'); grid on;
 
-subplot(2,2,3);
-bar([tF_nl, tF_lin, tF_am]);
-set(gca,'XTickLabel',{'a.i','a.ii','Amort.'});
+subplot(2,2,3);   % --- Norma maxima de desplazamiento en intervalo comun ---
+hold on;
+plot(t_lin(idx_com_lin), norm_ev_lin, 'b-', 'LineWidth', 1.5, 'DisplayName','Lineal (a.ii)');
+plot(t_nl(idx_com_nl),   norm_ev_nl,  'r-', 'LineWidth', 1.5, 'DisplayName','No lineal (a.i)');
+% Marcar el maximo de cada caso dentro del intervalo comun
+[~, ki] = max(norm_ev_lin); plot(t_lin(idx_com_lin(ki)), norm_ev_lin(ki), 'bs', 'MarkerSize',8, 'MarkerFaceColor','b', 'HandleVisibility','off');
+[~, ki] = max(norm_ev_nl);  plot(t_nl( idx_com_nl(ki)),  norm_ev_nl(ki),  'r^', 'MarkerSize',8, 'MarkerFaceColor','r', 'HandleVisibility','off');
+xlabel('Tiempo [s]'); ylabel('max_I ||u_I|| [m]');
+title(sprintf('Norma max. despl. nodal  en [0, tF_{min}=%.2f s]', tF_min));
+legend('Location','northwest'); grid on;
+
+subplot(2,2,4);   % --- Tiempos finales y deformada al tF_min ---
+bar([tF_nl, tF_lin, tF_am], 0.5);
+set(gca,'XTickLabel',{'a.i (NL)','a.ii (Lin)','Amort.'});
 ylabel('t_F [s]');
-title('Tiempos finales');
+title(sprintf('Tiempos de colapso  |  t_{F,min} = %.2f s', tF_min));
+text(1, tF_nl  * 0.5, sprintf('%.2f s',tF_nl),  'HorizontalAlignment','center','Color','w','FontWeight','bold');
+text(2, tF_lin * 0.5, sprintf('%.2f s',tF_lin), 'HorizontalAlignment','center','Color','w','FontWeight','bold');
+text(3, tF_am  * 0.5, sprintf('%.2f s',tF_am),  'HorizontalAlignment','center','Color','w','FontWeight','bold');
 grid on;
 
-subplot(2,2,4);
+sgtitle(sprintf(['b.iii - Comparacion a.i vs a.ii en [0, min(t_F)] = [0, %.2f s]\n' ...
+    'Marcadores: norma maxima de desplazamiento'], tF_min), 'FontSize', 10);
+
+% =========================================================
+%  FIGURA 5: Vista conjunta con deformada (referencia geometrica)
+% =========================================================
+figure('Name','Comparacion a.i, a.ii y reticulado amortiguado - deformada','NumberTitle','off');
+
+subplot(1,2,1);
+hold on; axis equal; grid on;
+idx_final_nl = idx_min_nl(end);
+u_glob_nl_f = zeros(nDOF,1);
+u_glob_nl_f(DOF_lib) = u_hist_nl(idx_final_nl,:)';
+x_nl_f = x0 + u_glob_nl_f(1:2:end)';
+y_nl_f = y0 + u_glob_nl_f(2:2:end)';
+for e = 1:nBarras
+    plot([x0(Ni(e)) x0(Nj(e))], [y0(Ni(e)) y0(Nj(e))], 'Color',[0.75 0.75 0.75], 'LineWidth',0.8);
+end
+for e = 1:nBarras
+    plot([x_nl_f(Ni(e)) x_nl_f(Nj(e))], [y_nl_f(Ni(e)) y_nl_f(Nj(e))], 'r-', 'LineWidth',1.5);
+end
+plot(x_nl_f, y_nl_f, 'ko', 'MarkerFaceColor','r', 'MarkerSize',5);
+xlabel('x [m]'); ylabel('y [m]');
+title(sprintf('No lineal (a.i), t = %.2f s', t_nl(idx_final_nl)));
+
+subplot(1,2,2);
 hold on; axis equal; grid on;
 idx_final_am = idx_min_am(end);
 u_glob_am = zeros(nDOF,1);
@@ -309,14 +382,14 @@ u_glob_am(DOF_lib) = u_hist_am(idx_final_am,:)';
 x_am = x0 + u_glob_am(1:2:end)';
 y_am = y0 + u_glob_am(2:2:end)';
 for e = 1:nBarras
-    plot([x0(Ni(e)) x0(Nj(e))], [y0(Ni(e)) y0(Nj(e))], 'Color',[0.7 0.7 0.7], 'LineWidth',0.8);
+    plot([x0(Ni(e)) x0(Nj(e))], [y0(Ni(e)) y0(Nj(e))], 'Color',[0.75 0.75 0.75], 'LineWidth',0.8);
 end
 for e = 1:nBarras
     plot([x_am(Ni(e)) x_am(Nj(e))], [y_am(Ni(e)) y_am(Nj(e))], 'g-', 'LineWidth',1.5);
 end
 plot(x_am, y_am, 'ko', 'MarkerFaceColor','g', 'MarkerSize',5);
 xlabel('x [m]'); ylabel('y [m]');
-title(sprintf('Reticulado con amortiguacion, t = %.2f s', t_am(idx_final_am)));
+title(sprintf('Con amortiguador, t = %.2f s', t_am(idx_final_am)));
 
 % =========================================================
 %  ANIMACION - Configuracion deformada en el tiempo (a.i)
