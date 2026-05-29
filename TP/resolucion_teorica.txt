@@ -1,0 +1,113 @@
+Paso 1: Definir las propiedades del sistema (Estado Inicial)
+Antes de que el sistema se mueva, debes definir sus parámetros geométricos y físicos basándote en la configuración de referencia (no deformada).
+Rigidez de las barras: La consigna indica que es un resorte. Tus apuntes definen que para partículas conectadas por un resorte elástico, la ecuación constitutiva de la fuerza interna es ∣F 
+IJ
+​
+ ∣=k 
+IJ
+​
+ Δl 
+IJ
+​
+ 
+, donde Δl 
+IJ
+​
+  es el alargamiento de la barra. Sabiendo que k=E⋅A/L 
+0
+​
+ , calculas este valor para cada barra.
+Masas de los nodos: Calcula la masa m 
+I
+​
+  de cada nodo sumando la mitad de la masa de todas las barras que concurren a él (la masa de una barra será su volumen A⋅L 
+0
+​
+  por la densidad del material, un dato que seguramente te den o debas adoptar).
+Vectores directores originales: Para cada barra, define su vector director unitario inicial. Esto será fundamental para el caso a.ii.
+Paso 2: Plantear las Ecuaciones de Movimiento
+Para cada nodo (partícula) I, el movimiento está gobernado por la Segunda Ley de Newton. El material establece que la ecuación diferencial para un sistema de partículas es: m 
+I
+​
+  
+dt
+dv 
+I
+​
+ 
+​
+ =F 
+I
+(e)
+​
+ +∑F 
+IJ
+​
+ 
+. Donde:
+F 
+I
+(e)
+​
+  son las fuerzas externas (tu carga P(t) y las reacciones en los apoyos).
+∑F 
+IJ
+​
+  es la suma de las fuerzas internas que las barras conectadas ejercen sobre el nodo I.
+Paso 3: Diferenciar los modelos (Incisos a.i y a.ii)
+En cada instante de tiempo t, las coordenadas de los nodos cambian. Aquí es donde tu programa se bifurca en las dos situaciones solicitadas:
+Modelo a.i (Deformaciones Finitas): La longitud actual de la barra l 
+IJ
+​
+  se calcula con las coordenadas actualizadas de los nodos. El alargamiento es Δl 
+IJ
+​
+ =l 
+IJ
+​
+ (t)−L 
+0
+​
+ . La fuerza elástica ∣F 
+IJ
+​
+ ∣ actúa estrictamente en la dirección de la barra deformada. Debes calcular el vector director actualizado en cada instante de tiempo para proyectar esta fuerza en los ejes x e y.
+Modelo a.ii (Pequeños Desplazamientos): Calculas la fuerza igual que antes, pero asumes que la barra rotó tan poco que la dirección en la que actúa la fuerza es la misma dirección de la configuración de referencia (no deformada). Usas los vectores directores iniciales que calculaste en el Paso 1 durante todo el tiempo de simulación.
+(Aclaración importante: Tus fuentes detallan las ecuaciones diferenciales físicas del problema
+, pero no incluyen algoritmos de integración numérica iterativa como Euler, Runge-Kutta o Newmark, que son herramientas de cálculo numérico que deberás elegir e implementar por fuera de estos apuntes para "desarrollar el programa computacional").
+Paso 4: Criterio de Parada por Área de Triángulos (Inciso b.i)
+Para verificar si las barras se cruzan, debes calcular el área de los triángulos que forman. Tus apuntes te dan la herramienta matemática exacta para esto: el módulo del producto vectorial entre dos vectores con un origen común te da el área del paralelogramo que forman, por lo que el área del triángulo es la mitad de ese valor
+. Si tienes un triángulo formado por los nodos O, A y C, evalúas el producto cruz  
+OA
+
+ × 
+OC
+
+ 
+. Si el signo de este producto vectorial (su componente en el eje z perpendicular al plano) cambia respecto al instante inicial, significa que el triángulo se "invirtió" (las barras se cruzaron). Ese es tu tiempo t 
+F
+​
+ .
+Paso 5: Cálculo de Tensiones (Inciso b.ii)
+Una vez resueltas las fuerzas en las barras, debes calcular las tensiones para tu gráfica.
+Tensión Normal (σ): Se calcula dividiendo la magnitud de la fuerza interna por el área transversal de la barra: σ=F/A
+. Recordando que la tracción es positiva y la compresión negativa
+.
+¿Qué ocurre con la Tensión Tangencial (τ)? En tu gráfica, la tensión tangencial será exactamente cero durante todo el proceso. ¿Por qué? El libro de Fung lo explica claramente al analizar reticulados: "cada miembro está unido por articulaciones (pin-jointed) y se considera sin peso... el par de fuerzas provenientes de las uniones deben ser iguales y opuestas. Por lo tanto, cada miembro puede transmitir fuerzas únicamente a lo largo de su eje"
+. Al no haber fuerzas transversales al eje de la barra, no existe esfuerzo de corte en la sección transversal, por lo que τ=0.
+Paso 6: Gráficas y Conclusiones (Incisos b.ii y b.iii)
+Programa tu código para guardar en cada paso de tiempo la coordenada del nodo "b" y la tensión de la barra "a", y luego graficarlas juntas.
+Busca en tu arreglo de resultados el valor máximo de la norma del desplazamiento  
+u 
+x
+2
+​
+ +u 
+y
+2
+​
+ 
+
+​
+  y en qué instante ocurre.
+Para tu conclusión: Al comparar ambos modelos, notarás que al principio (cuando P(t) recién arranca y la estructura casi no se movió), ambos modelos dan gráficas idénticas. A medida que el tiempo avanza y el reticulado se deforma apreciablemente, el modelo a.ii (pequeños desplazamientos) empezará a dar resultados erróneos, tensiones poco realistas e incluso puede que el sistema no colapse computacionalmente cuando en la realidad sí lo haría, ya que no actualiza la geometría para el equilibrio. Tu conclusión debería orientarse a que el modelo a.ii solo es válido para un intervalo temporal inicial muy corto (régimen lineal), mientras que el modelo a.i es el estrictamente riguroso para todo el dominio temporal de este problema físico.

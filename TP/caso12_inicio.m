@@ -15,41 +15,46 @@ rho = 1;        % Densidad de las barras
 P   = 3.2;      % Carga uniforme en el tiempo
 
 % ---------------------------------------------------------
-% PASO 1: COORDENADAS DE LOS NODOS
-% Origen en nodo 1. Unidades consistentes con L=10, 15.
+% PASO 1 y 2: GEOMETRIA Y CONECTIVIDAD DESDE ARCHIVO DXF
+% Lectura automatica con f_LectDxf (provisto por la catedra)
 % ---------------------------------------------------------
-%         nodo:  1     2     3     4     5     6     7     8
-coords = [  0,  10,    5,   20,   10,   15,   15,   20, ...
-%         nodo:  9    10    11    12    13    14    15
-            30,   35,   40,   30,   40,   50,   60; ...
-%         y:
-             0,    0,   15,    0,   15,   15,   30,   30, ...
-            15,   15,   15,    0,    0,   15,    0 ];
+dxf_path = fullfile(fileparts(mfilename('fullpath')), ...
+    '..', 'Consigna', 'dxf', 'dxf', 'Estr12.dxf');
+[c_Line, ~, c_Cir, ~, ~] = f_LectDxf(dxf_path);
 
-x = coords(1,:);   % coordenadas x de cada nodo (1x15)
-y = coords(2,:);   % coordenadas y de cada nodo (1x15)
+% Nodos: centros de los circulos (en el orden en que aparecen en el DXF)
+m_Cir = cell2mat(c_Cir(:,1));   % [x, y, radio] para cada circulo
+x     = round(m_Cir(:,1)' * 1e6) / 1e6;  % coordenadas x (1 x nNodos)
+y     = round(m_Cir(:,2)' * 1e6) / 1e6;  % coordenadas y (1 x nNodos)
+nNodos = length(x);
 
-nNodos = 15;
-nBarras = 26;
+% Barras: lineas cuyos dos extremos coincidan con nodos conocidos
+% (las lineas de cota/dimension del DXF tienen extremos fuera de la red)
+m_Lin = cell2mat(c_Line(:,1));  % [Xi Yi Zi Xj Yj Zj]
+tol   = 0.5;                    % tolerancia geometrica [m]
+Ni = []; Nj = [];
+for e_dxf = 1:size(m_Lin, 1)
+    xi = m_Lin(e_dxf,1);  yi = m_Lin(e_dxf,2);
+    xj = m_Lin(e_dxf,4);  yj = m_Lin(e_dxf,5);
+    di = sqrt((x - xi).^2 + (y - yi).^2);
+    dj = sqrt((x - xj).^2 + (y - yj).^2);
+    [min_di, ni] = min(di);
+    [min_dj, nj] = min(dj);
+    if min_di < tol && min_dj < tol && ni ~= nj
+        Ni(end+1) = ni;  %#ok<AGROW>
+        Nj(end+1) = nj;  %#ok<AGROW>
+    end
+end
+nBarras = length(Ni);
 
-% Verificacion rapida: imprimir coordenadas
-fprintf('--- Coordenadas de los nodos ---\n');
+fprintf('Geometria leida desde DXF: %d nodos, %d barras\n', nNodos, nBarras);
+
+% Verificacion: imprimir coordenadas
+fprintf('\n--- Coordenadas de los nodos ---\n');
 fprintf('Nodo  x     y\n');
 for i = 1:nNodos
     fprintf('  %2d  %5.1f  %5.1f\n', i, x(i), y(i));
 end
-
-% ---------------------------------------------------------
-% PASO 2: CONECTIVIDAD DE LAS BARRAS
-% Tabla Ni - Nj segun enunciado (Caso 12)
-% ---------------------------------------------------------
-%         barra: 1   2   3   4   5   6   7   8   9  10  11  12  13
-Ni = [    1,   1,   2,   4,   4,   5,   2,   5,   6,   3,   5,   7,  15, ...
-%         barra:14  15  16  17  18  19  20  21  22  23  24  25  26
-          15,  14,  11,  10,  13,  12,  12,  11,  13,  11,   9,   6,   9 ];
-
-Nj = [    2,   3,   4,   6,   5,   2,   3,   6,   7,   5,   7,   8,  13, ...
-          14,  11,  10,   8,  12,   9,  11,  13,  14,   9,  10,   8,   8 ];
 
 % ---------------------------------------------------------
 % PASO 3: PROPIEDADES GEOMETRICAS DE CADA BARRA
@@ -192,3 +197,38 @@ for i = 1:min(6, length(omega))
 end
 
 fprintf('\n=== Fin del Paso 1 y 2. Listo para dinamica. ===\n');
+
+% ---------------------------------------------------------
+% GRAFICA: Estructura inicial con numeracion de nodos y barras
+% ---------------------------------------------------------
+figure('Name','Estructura inicial - Caso 12','NumberTitle','off');
+hold on; axis equal; grid on;
+
+% Barras
+for e = 1:nBarras
+    xm = (x(Ni(e)) + x(Nj(e))) / 2;
+    ym = (y(Ni(e)) + y(Nj(e))) / 2;
+    plot([x(Ni(e)) x(Nj(e))], [y(Ni(e)) y(Nj(e))], 'b-', 'LineWidth', 1.5);
+    text(xm, ym+0.4, sprintf('%d',e), 'FontSize', 7, 'Color',[0 0.5 0], ...
+        'HorizontalAlignment','center');
+end
+
+% Nodos libres
+plot(x, y, 'ko', 'MarkerFaceColor','w', 'MarkerSize', 8);
+for i = 1:nNodos
+    text(x(i)+0.5, y(i)+1.0, sprintf('%d',i), 'FontSize', 9, ...
+        'Color','r', 'FontWeight','bold');
+end
+
+% Empotramientos (nodos 1 y 15)
+plot(x([1,15]), y([1,15]), 'rs', 'MarkerFaceColor','r', 'MarkerSize', 10);
+
+% Cargas (nodos 7 y 10)
+quiver(x(7),  y(7)+3,  0, -2.5, 0, 'k', 'LineWidth', 2, 'MaxHeadSize', 0.8);
+quiver(x(10), y(10)+3, 0, -2.5, 0, 'k', 'LineWidth', 2, 'MaxHeadSize', 0.8);
+text(x(7)+0.5,  y(7)+3.5,  'P', 'FontSize', 9, 'FontWeight','bold');
+text(x(10)+0.5, y(10)+3.5, 'P', 'FontSize', 9, 'FontWeight','bold');
+
+xlabel('x [m]'); ylabel('y [m]');
+title('Reticulado Caso 12 - Configuracion inicial');
+legend({'Barras','Nodos','Empotramientos','Carga P'}, 'Location','northeast');

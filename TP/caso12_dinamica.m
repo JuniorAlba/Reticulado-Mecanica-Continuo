@@ -1,4 +1,4 @@
-% =========================================================
+﻿% =========================================================
 %  CASO 12 - Reticulado plano 2D
 %  Dinamica: hipotesis lineal (a.ii) y no lineal (a.i)
 %  Deteccion de tF, tensiones, amortiguador Drag Force
@@ -25,26 +25,45 @@ barra_a = 5;      % Barra a analizar
 nodo_b  = 4;      % Nodo b a monitorear
 
 % ---------------------------------------------------------
-% COORDENADAS DE LOS NODOS
+% GEOMETRIA Y CONECTIVIDAD DESDE ARCHIVO DXF
+% Lectura automatica con f_LectDxf (provisto por la catedra)
 % ---------------------------------------------------------
-x0 = [  0, 10,  5, 20, 15, 25, 20, 30, 35, 40, 45, 40, 50, 55, 60 ];
-y0 = [  0,  0, 5,  0, 15, 15, 20, 30, 15, 20, 15,  0,  0, 5,  0 ];
+dxf_path = fullfile(fileparts(mfilename('fullpath')), ...
+    '..', 'Consigna', 'dxf', 'dxf', 'Estr12.dxf');
+[c_Line, ~, c_Cir, ~, ~] = f_LectDxf(dxf_path);
+
+% Nodos: centros de los circulos (en el orden en que aparecen en el DXF)
+m_Cir = cell2mat(c_Cir(:,1));    % [x, y, radio] para cada circulo
+x0    = round(m_Cir(:,1)' * 1e6) / 1e6;   % coordenadas x iniciales (1 x nNodos)
+y0    = round(m_Cir(:,2)' * 1e6) / 1e6;   % coordenadas y iniciales (1 x nNodos)
 
 nNodos = numel(x0);
 
-if numel(y0) ~= nNodos
-    error('x0 e y0 deben tener la misma cantidad de nodos.');
+% Barras: lineas cuyos dos extremos coincidan con nodos conocidos
+% (las lineas de cota/dimension del DXF tienen extremos fuera de la red)
+m_Lin = cell2mat(c_Line(:,1));   % [Xi Yi Zi Xj Yj Zj]
+tol   = 0.5;                     % tolerancia geometrica [m]
+Ni_v = []; Nj_v = [];
+for e_dxf = 1:size(m_Lin, 1)
+    xi = m_Lin(e_dxf,1);  yi = m_Lin(e_dxf,2);
+    xj = m_Lin(e_dxf,4);  yj = m_Lin(e_dxf,5);
+    di = sqrt((x0 - xi).^2 + (y0 - yi).^2);
+    dj = sqrt((x0 - xj).^2 + (y0 - yj).^2);
+    [min_di, ni] = min(di);
+    [min_dj, nj] = min(dj);
+    if min_di < tol && min_dj < tol && ni ~= nj
+        Ni_v(end+1) = ni;  %#ok<AGROW>
+        Nj_v(end+1) = nj;  %#ok<AGROW>
+    end
 end
-
-% ---------------------------------------------------------
-% CONECTIVIDAD
-% ---------------------------------------------------------
-Ni = [ 1,  1,  2,  4,  4,  5,  2,  5,  6,  3,  5,  7, 15, 15, 14, 11, 10, 13, 12, 12, 11, 13, 11,  9,  6,  9 ];
-Nj = [ 2,  3,  4,  6,  5,  2,  3,  6,  7,  5,  7,  8, 13, 14, 11, 10,  8, 12,  9, 11, 13, 14,  9, 10,  8,  8 ];
+Ni = Ni_v;
+Nj = Nj_v;
 nBarras = numel(Ni);
 
-if numel(Nj) ~= nBarras
-    error('Ni y Nj deben tener la misma cantidad de barras.');
+fprintf('Geometria leida desde DXF: %d nodos, %d barras\n', nNodos, nBarras);
+
+if numel(y0) ~= nNodos
+    error('x0 e y0 deben tener la misma cantidad de nodos.');
 end
 
 if any([Ni, Nj] < 1) || any([Ni, Nj] > nNodos)
@@ -301,232 +320,64 @@ title(sprintf('Reticulado con amortiguacion, t = %.2f s', t_am(idx_final_am)));
 
 % =========================================================
 %  ANIMACION - Configuracion deformada en el tiempo (a.i)
+%  Se guarda como GIF usando gif.m (provisto por la catedra)
 % =========================================================
-fprintf('\nGenerando animacion...\n');
+fprintf('\nGenerando animacion GIF (hipotesis no lineal)...\n');
 
-figure('Name','Animacion reticulado (no lineal)','NumberTitle','off');
+gif_path = fullfile(fileparts(mfilename('fullpath')), 'animacion_caso12.gif');
+
+fig_anim = figure('Name','Animacion reticulado (no lineal)','NumberTitle','off');
 idx_anim = find(t_nl <= tF_nl);
-paso_anim = max(1, floor(length(idx_anim)/200));   % max 200 frames
+paso_anim = max(1, floor(length(idx_anim)/120));   % max 120 frames en el GIF
 
+% Limites fijos del grafico para toda la animacion
+u_glob_all = zeros(nDOF, length(idx_anim));
+for k = 1:length(idx_anim)
+    u_glob_all(DOF_lib, k) = u_hist_nl(idx_anim(k), :)';
+end
+x_all = x0' + u_glob_all(1:2:end, :);  % 15 x nFrames
+y_all = y0' + u_glob_all(2:2:end, :);
+xlims = [min(x_all(:))-2, max(x_all(:))+2];
+ylims = [min(y_all(:))-2, max(y_all(:))+2];
+
+first_gif = true;
 for k = 1:paso_anim:length(idx_anim)
-    clf;
     u_glob = zeros(nDOF,1);
     u_glob(DOF_lib) = u_hist_nl(idx_anim(k),:)';
     x_act = x0 + u_glob(1:2:end)';
     y_act = y0 + u_glob(2:2:end)';
 
+    clf;
     hold on; axis equal; grid on;
+    xlim(xlims); ylim(ylims);
+
     % Configuracion inicial (gris)
     for e = 1:nBarras
-        plot([x0(Ni(e)) x0(Nj(e))], [y0(Ni(e)) y0(Nj(e))], 'Color',[0.7 0.7 0.7], 'LineWidth',0.8);
+        plot([x0(Ni(e)) x0(Nj(e))], [y0(Ni(e)) y0(Nj(e))], ...
+            'Color',[0.7 0.7 0.7], 'LineWidth', 0.8);
     end
     % Configuracion deformada (azul)
     for e = 1:nBarras
-        plot([x_act(Ni(e)) x_act(Nj(e))], [y_act(Ni(e)) y_act(Nj(e))], 'b-', 'LineWidth',1.5);
+        plot([x_act(Ni(e)) x_act(Nj(e))], [y_act(Ni(e)) y_act(Nj(e))], ...
+            'b-', 'LineWidth', 1.5);
     end
-    plot(x_act, y_act, 'ko', 'MarkerFaceColor','b', 'MarkerSize',5);
-    title(sprintf('t = %.2f s  (no lineal)', t_nl(idx_anim(k))));
+    plot(x_act, y_act, 'ko', 'MarkerFaceColor','b', 'MarkerSize', 5);
+    title(sprintf('t = %.2f s  |  No lineal (a.i)  |  Caso 12', t_nl(idx_anim(k))), ...
+        'FontSize', 10);
     xlabel('x [m]'); ylabel('y [m]');
     drawnow;
-    pause(0.02);
+
+    % Guardar frame en GIF
+    if first_gif
+        gif(gif_path, 'overwrite', true, 'frame', gca, ...
+            'DelayTime', 1/15, 'LoopCount', 1);
+        first_gif = false;
+    else
+        gif;
+    end
 end
+gif('clear');
+fprintf('GIF guardado en: %s\n', gif_path);
 
 fprintf('\n=== Simulacion completa. ===\n');
 
-% =========================================================
-%  FUNCIONES LOCALES
-% =========================================================
-
-% ---------------------------------------------------------
-% FUNCION: propiedades geometricas de las barras
-% dada configuracion actual de nodos (x, y)
-% ---------------------------------------------------------
-function [L_b, ct, st, kb] = props_barras(x, y, Ni, Nj, E, A)
-    nB = length(Ni);
-    L_b = zeros(1,nB); ct = zeros(1,nB); st = zeros(1,nB); kb = zeros(1,nB);
-    for e = 1:nB
-        dx    = x(Nj(e)) - x(Ni(e));
-        dy    = y(Nj(e)) - y(Ni(e));
-        L_b(e) = sqrt(dx^2 + dy^2);
-        ct(e)  = dx / L_b(e);
-        st(e)  = dy / L_b(e);
-        kb(e)  = E * A / L_b(e);
-    end
-end
-
-% ---------------------------------------------------------
-% FUNCION: ensamblaje de K global
-% ---------------------------------------------------------
-function K = ensamblar_K(Ni, Nj, ct, st, kb, nNodos)
-    nDOF = 2*nNodos;
-    K = zeros(nDOF, nDOF);
-    for e = 1:length(Ni)
-        c = ct(e); s = st(e); k = kb(e);
-        Ke = k * [ c^2,  c*s, -c^2, -c*s;
-                   c*s,  s^2, -c*s, -s^2;
-                  -c^2, -c*s,  c^2,  c*s;
-                  -c*s, -s^2,  c*s,  s^2 ];
-        dofs = [2*Ni(e)-1, 2*Ni(e), 2*Nj(e)-1, 2*Nj(e)];
-        K(dofs,dofs) = K(dofs,dofs) + Ke;
-    end
-end
-
-% ---------------------------------------------------------
-% FUNCION: area con signo de un triangulo
-% ---------------------------------------------------------
-function A_sig = area_triangulo(xi, yi, xj, yj, xk, yk)
-    A_sig = 0.5 * ((xj-xi)*(yk-yi) - (xk-xi)*(yj-yi));
-end
-
-% ---------------------------------------------------------
-% FUNCION: fuerza de arrastre en nodo c (solo direccion y)
-% ---------------------------------------------------------
-function Fa = drag_force(vy_c, y_c, h_SL, r_esf, rho_fl, Cd)
-    % Posicion relativa de la esfera respecto a la superficie libre
-    % y_c = coordenada actual del nodo c
-    % La esfera esta centrada en y_c
-    dist = h_SL - y_c;   % positivo si el centro esta bajo la superficie
-
-    if dist <= -r_esf
-        % Esfera completamente fuera del fluido (centro muy por encima)
-        AR = 0;
-    elseif dist >= r_esf
-        % Esfera completamente sumergida
-        AR = pi * r_esf^2;
-    else
-        % Parcialmente sumergida: AR = area del circulo a la altura del corte
-        % h_inm = profundidad de inmersion del centro = dist
-        AR = pi * (r_esf^2 - dist^2);
-        AR = max(AR, 0);
-    end
-
-    % Fuerza de arrastre (solo componente y, opuesta a la velocidad)
-    Fa = -0.5 * rho_fl * Cd * AR * abs(vy_c) * vy_c;
-end
-
-function dz = ode_lineal(~, z, K_red, F_red, M_inv, nLib)
-    u = z(1:nLib);
-    v = z(nLib+1:end);
-    a = M_inv * (F_red - K_red * u);
-    dz = [v; a];
-end
-
-function dz = ode_nolineal(~, z, x0, y0, Ni, Nj, E, A, P_val, ...
-                            DOF_lib, M_inv, nLib, nNodos, ...
-                            usar_amort, rho_fl, Cd, r_esf, h_SL, nodo_c)
-    nDOF = 2*nNodos;
-    u = z(1:nLib);
-    v = z(nLib+1:end);
-
-    % Reconstruir desplazamientos globales
-    u_glob = zeros(nDOF,1);
-    u_glob(DOF_lib) = u;
-
-    % Coordenadas actuales
-    x_act = x0 + u_glob(1:2:end)';
-    y_act = y0 + u_glob(2:2:end)';
-
-    % Recalcular K con geometria deformada
-    [~, ct, st, kb] = props_barras(x_act, y_act, Ni, Nj, E, A);
-    K_act = ensamblar_K(Ni, Nj, ct, st, kb, nNodos);
-    K_red = K_act(DOF_lib, DOF_lib);
-
-    % Fuerzas externas: cargas puntuales verticales.
-    F_glob = zeros(nDOF,1);
-    F_glob(2*7)  = -P_val;
-    F_glob(2*10) = -P_val;
-
-    % Amortiguador en nodo c (si corresponde)
-    if usar_amort
-        vy_c = v(DOF_lib == 2*nodo_c);   % velocidad en y del nodo c
-        y_c  = y_act(nodo_c);
-        if ~isempty(vy_c)
-            Fa = drag_force(vy_c, y_c, h_SL, r_esf, rho_fl, Cd);
-            F_glob(2*nodo_c) = F_glob(2*nodo_c) + Fa;
-        end
-    end
-
-    F_red = F_glob(DOF_lib);
-    a = M_inv * (F_red - K_red * u);
-    dz = [v; a];
-end
-
-function tF = detectar_tF(t_vec, u_hist, x0, y0, triangulos, DOF_lib, nNodos, tF_max)
-    nDOF = 2*nNodos;
-    nTri = size(triangulos,1);
-    tF   = tF_max;
-
-    % Areas iniciales
-    A0 = zeros(nTri,1);
-    for tr = 1:nTri
-        ni=triangulos(tr,1); nj=triangulos(tr,2); nk=triangulos(tr,3);
-        A0(tr) = area_triangulo(x0(ni),y0(ni), x0(nj),y0(nj), x0(nk),y0(nk));
-    end
-    signo0 = sign(A0);
-
-    for step = 1:length(t_vec)
-        u_glob = zeros(nDOF,1);
-        u_glob(DOF_lib) = u_hist(step,:)';
-        x_act = x0 + u_glob(1:2:end)';
-        y_act = y0 + u_glob(2:2:end)';
-
-        for tr = 1:nTri
-            ni=triangulos(tr,1); nj=triangulos(tr,2); nk=triangulos(tr,3);
-            A_act = area_triangulo(x_act(ni),y_act(ni), x_act(nj),y_act(nj), x_act(nk),y_act(nk));
-            if sign(A_act) ~= signo0(tr)
-                tF = t_vec(step);
-                fprintf('Cambio de signo en triangulo %d en t=%.4f s\n', tr, tF);
-                return;
-            end
-        end
-    end
-end
-
-function [sigma, tau] = tension_barra(e, u_glob, x0, y0, Ni, Nj, E, L0b)
-    ni = Ni(e); nj = Nj(e);
-
-    % Desplazamientos actuales
-    x_act_ni = x0(ni) + u_glob(2*ni-1);
-    y_act_ni = y0(ni) + u_glob(2*ni);
-    x_act_nj = x0(nj) + u_glob(2*nj-1);
-    y_act_nj = y0(nj) + u_glob(2*nj);
-
-    dx_act = x_act_nj - x_act_ni;
-    dy_act = y_act_nj - y_act_ni;
-    L_act  = sqrt(dx_act^2 + dy_act^2);
-
-    % Tension normal (axial)
-    sigma = E * (L_act - L0b(e)) / L0b(e);
-
-    % Tension tangencial: CERO en barra articulada (solo transmite axial)
-    tau = 0;
-end
-
-function [sigma_v, tau_v] = calcular_tensiones_hist(t_vec, u_hist, tF, barra_a, ...
-                             x0, y0, Ni, Nj, DOF_lib, nNodos, E, L0b)
-    nDOF   = 2*nNodos;
-    idx    = find(t_vec <= tF);
-    sigma_v = zeros(length(idx),1);
-    tau_v   = zeros(length(idx),1);
-    for k = 1:length(idx)
-        u_glob = zeros(nDOF,1);
-        u_glob(DOF_lib) = u_hist(idx(k),:)';
-        [sigma_v(k), tau_v(k)] = tension_barra(barra_a, u_glob, x0, y0, Ni, Nj, E, L0b);
-    end
-end
-
-function [norm_max, t_norm_max] = norma_max_despl(t_vec, u_hist, DOF_lib, nNodos, tF)
-    nDOF = 2*nNodos;
-    idx  = find(t_vec <= tF);
-    norms = zeros(length(idx),1);
-    for k = 1:length(idx)
-        u_glob = zeros(nDOF,1);
-        u_glob(DOF_lib) = u_hist(idx(k),:)';
-        % Norma del vector desplazamiento para cada nodo
-        u_nodos = reshape(u_glob, 2, nNodos);
-        normas_nodo = sqrt(u_nodos(1,:).^2 + u_nodos(2,:).^2);
-        norms(k) = max(normas_nodo);
-    end
-    [norm_max, idx_max] = max(norms);
-    t_norm_max = t_vec(idx(idx_max));
-end
